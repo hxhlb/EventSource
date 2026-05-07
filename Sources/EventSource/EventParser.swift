@@ -26,7 +26,31 @@ struct ServerEventParser: EventParser {
     static let colon: UInt8 = 0x3A
 
     mutating func parse(_ data: Data) -> [EVEvent] {
-        let (separatedMessages, remainingData) = splitBuffer(for: buffer + data)
+        // Append in-place (amortized O(1) when buffer has capacity)
+        buffer.append(data)
+
+        // Quick check: only scan the newly added region + small overlap for separator.
+        // This avoids O(n) full-buffer scan on every chunk when no separator is present.
+        let separators: [[UInt8]] = [[Self.lf, Self.lf], [Self.cr, Self.lf, Self.cr, Self.lf]]
+        let maxSeparatorLength = 4 // \r\n\r\n is the longest
+        let searchStart = max(buffer.startIndex, buffer.endIndex - data.count - maxSeparatorLength)
+        let tailRegion = buffer[searchStart...]
+
+        var hasSeparator = false
+        for separator in separators {
+            if tailRegion.range(of: Data(separator)) != nil {
+                hasSeparator = true
+                break
+            }
+        }
+
+        guard hasSeparator else {
+            // No separator in the new region — nothing to parse yet
+            return []
+        }
+
+        // Separator found — do the full split (only runs when we have complete messages)
+        let (separatedMessages, remainingData) = splitBuffer(for: buffer)
         buffer = remainingData
         return parseBuffer(for: separatedMessages)
     }
