@@ -46,4 +46,12 @@ final class SessionDelegate: NSObject, URLSessionDataDelegate {
     ) {
         internalStream.continuation.yield(.didReceiveData(data))
     }
+
+    func urlSession(
+        _ session: URLSession,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        completionHandler(.performDefaultHandling, nil)
+    }
 }
